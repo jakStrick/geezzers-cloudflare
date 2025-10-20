@@ -1,0 +1,15 @@
+name = "geezzers-gazzette"
+compatibility_date = "2024-01-01"
+
+# REPLACE YOUR_DATABASE_ID_HERE with actual ID from: wrangler d1 create geezzers-db
+[[d1_databases]]
+binding = "DB"
+database_name = "geezzers-db"
+database_id = "e56ac7e2-8e8c-488c-8b7c-acfa9cc0a4d9"
+
+[site]
+bucket = "./public"
+
+[vars]
+SITE_NAME = "The Geezzers' Gazzette"
+MODERATION_ENABLED = "true"

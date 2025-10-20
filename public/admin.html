@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>Geezzers Admin</title>
+		<style>
+			body {
+				font-family: Arial;
+				padding: 20px;
+			}
+			.comment {
+				border: 1px solid #ccc;
+				padding: 10px;
+				margin: 10px 0;
+			}
+			.pending {
+				background: #fff3cd;
+			}
+			.approved {
+				background: #d4edda;
+			}
+			button {
+				margin: 5px;
+				padding: 5px 10px;
+				cursor: pointer;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Comment Moderation</h1>
+		<div id="comments"></div>
+
+		<script>
+			async function loadComments() {
+				const response = await fetch("/api/admin/comments");
+				const comments = await response.json();
+
+				document.getElementById("comments").innerHTML = comments
+					.map(
+						(c) => `
+                <div class="comment ${c.status}">
+                    <strong>${c.author_name}</strong> on "${c.post_title}"
+                    <p>${c.content}</p>
+                    <small>Status: ${c.status}</small><br>
+                    <button onclick="updateComment(${c.id}, 'approved')">Approve</button>
+                    <button onclick="updateComment(${c.id}, 'rejected')">Reject</button>
+                </div>
+            `
+					)
+					.join("");
+			}
+
+			async function updateComment(id, status) {
+				await fetch(`/api/admin/comments/${id}`, {
+					method: "PATCH",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ status }),
+				});
+				loadComments();
+			}
+
+			loadComments();
+		</script>
+	</body>
+</html>
