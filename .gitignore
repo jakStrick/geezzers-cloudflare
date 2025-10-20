@@ -1,8 +1,52 @@
+# Node.js dependencies
 node_modules/
-.wrangler/
-.dev.vars
-.mf/
-dist/
+package-lock.json
+npm-debug.log
+yarn-error.log
+yarn.lock
+
+# Environment variables
 .env
-.DS_Store
+.env.local
+.env.development
+.env.production
+*.env
+
+# Cloudflare Wrangler/D1 specific
+.wrangler/
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+
+# Build artifacts
+dist/
+build/
+out/
+
+# Local development and testing
 *.log
+*.log.*
+coverage/
+
+# VS Code specific
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/extensions.json
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Sensitive files
+secrets.json
+*.key
+*.pem
+*.cert
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
