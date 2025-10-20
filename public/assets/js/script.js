@@ -1,157 +1,163 @@
-// Frontend JavaScript
+// Load navbar component
+async function loadNavbar() {
+	const placeholder = document.getElementById("navbar-placeholder");
+	if (placeholder) {
+		try {
+			const response = await fetch("/assets/templates/navbar.html");
+			if (response.ok) {
+				const html = await response.text();
+				placeholder.innerHTML = html;
+				console.log("✅ Navbar loaded");
+
+				// Initialize any navbar interactions after loading
+				initNavbarEvents();
+			} else {
+				console.error("Failed to load navbar:", response.status);
+			}
+		} catch (error) {
+			console.error("Error loading navbar:", error);
+		}
+	}
+}
+
+// Load hero component
+async function loadHero() {
+	const placeholder = document.getElementById("hero-placeholder");
+	if (placeholder) {
+		try {
+			const response = await fetch("/assets/templates/hero.html");
+			if (response.ok) {
+				const html = await response.text();
+				placeholder.innerHTML = html;
+				console.log("✅ Hero loaded");
+			}
+		} catch (error) {
+			console.error("Error loading hero:", error);
+		}
+	}
+}
+
+// Initialize navbar events (dropdown menus, mobile toggle, etc.)
+function initNavbarEvents() {
+	// Example: Mobile menu toggle
+	const mobileToggle = document.querySelector(".navbar-toggle");
+	const navMenu = document.querySelector(".navbar-menu");
+
+	if (mobileToggle && navMenu) {
+		mobileToggle.addEventListener("click", () => {
+			navMenu.classList.toggle("active");
+		});
+	}
+
+	// Example: Dropdown menus
+	const dropdowns = document.querySelectorAll(".navbar-dropdown");
+	dropdowns.forEach((dropdown) => {
+		dropdown.addEventListener("click", (e) => {
+			e.currentTarget.classList.toggle("open");
+		});
+	});
+}
+
+// Load everything when DOM is ready
+document.addEventListener("DOMContentLoaded", async () => {
+	console.log("🎩 Loading Geezzers components...");
+
+	// Load components in order
+	await loadNavbar();
+	await loadHero();
+
+	// Then initialize other features
+	updateDateTicker();
+	initCommentSections();
+	initNewsletterSignup();
+
+	console.log("✅ All components loaded!");
+});
+
+// Load specific blog post
+async function loadBlogPost(filename, targetId) {
+	const placeholder = document.getElementById(targetId);
+	if (placeholder) {
+		try {
+			const response = await fetch(`/assets/blogs/${filename}`);
+			if (response.ok) {
+				const html = await response.text();
+				placeholder.innerHTML = html;
+			}
+		} catch (error) {
+			console.error(`Error loading blog ${filename}:`, error);
+		}
+	}
+}
+
+// Example usage
+document.addEventListener("DOMContentLoaded", async () => {
+	// Load blog content
+	await loadBlogPost("blog1.html", "blog-placeholder-1");
+	await loadBlogPost("blog2.html", "blog-placeholder-2");
+});
+
+// public/assets/js/script.js - Complete version
+
 const API_URL =
 	window.location.hostname === "localhost"
 		? "http://localhost:8788/api"
 		: "/api";
 
-// Update date ticker
-function updateDateTicker() {
-	const dateElement = document.getElementById("current-date");
-	if (dateElement) {
-		const now = new Date();
-		const options = {
-			weekday: "long",
-			year: "numeric",
-			month: "long",
-			day: "numeric",
-		};
-		dateElement.textContent = now.toLocaleDateString("en-US", options);
-	}
+// Load all template components
+async function loadTemplates() {
+	// Load in parallel for speed
+	const promises = [
+		loadComponent("navbar-placeholder", "/assets/templates/navbar.html"),
+		loadComponent("hero-placeholder", "/assets/templates/hero.html"),
+	];
+
+	await Promise.all(promises);
 }
 
-/*async function loadNavbar() {
-	alert("Loading Navbar");
-	try {
-		const response = await fetch("/public/assets/templates/navbar.html");
-		const html = await response.text();
+// Generic component loader
+async function loadComponent(placeholderId, templatePath) {
+	const placeholder = document.getElementById(placeholderId);
+	if (!placeholder) return;
 
-		const placeholder = document.getElementById("navbar-placeholder");
-		if (placeholder) {
+	try {
+		const response = await fetch(templatePath);
+		if (response.ok) {
+			const html = await response.text();
 			placeholder.innerHTML = html;
+			console.log(`✅ Loaded: ${templatePath}`);
 		}
 	} catch (error) {
-		console.error("Failed to load navbar:", error);
-	}
-}*/
-
-// Format time ago
-function formatTimeAgo(dateString) {
-	const now = new Date();
-	const date = new Date(dateString);
-	const diffMs = now - date;
-	const diffHours = Math.floor(diffMs / 3600000);
-	const diffDays = Math.floor(diffMs / 86400000);
-
-	if (diffHours < 1) {
-		return "just now";
-	} else if (diffHours < 24) {
-		return `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`;
-	} else {
-		return `${diffDays} day${diffDays !== 1 ? "s" : ""} ago`;
+		console.error(`Failed to load ${templatePath}:`, error);
 	}
 }
 
-// Load comments
-async function loadComments(postId, containerElement) {
-	try {
-		const response = await fetch(`${API_URL}/posts/${postId}/comments`);
-		const comments = await response.json();
+// Initialize everything
+document.addEventListener("DOMContentLoaded", async () => {
+	// Load templates first
+	await loadTemplates();
 
-		const existingCommentsDiv =
-			containerElement.querySelector(".existing-comments");
-		if (!existingCommentsDiv) return;
-
-		existingCommentsDiv.innerHTML = "";
-
-		if (comments.length === 0) {
-			existingCommentsDiv.innerHTML =
-				'<p style="color: #666;">No comments yet. Be the first!</p>';
-			return;
-		}
-
-		comments.forEach((comment) => {
-			const commentEl = document.createElement("div");
-			commentEl.className = "comment";
-			commentEl.innerHTML = `
-                <div class="comment-author">
-                    ${comment.author_name}
-                    <span class="comment-time">${formatTimeAgo(
-								comment.created_at
-							)}</span>
-                </div>
-                <p>${comment.content}</p>
-                <button class="reply-btn">Reply</button>
-            `;
-			existingCommentsDiv.appendChild(commentEl);
-		});
-	} catch (error) {
-		console.error("Error loading comments:", error);
-	}
-}
-
-// Submit comment
-async function submitComment(postId, formElement) {
-	const nameInput = formElement.querySelector(".comment-name");
-	const textInput = formElement.querySelector(".comment-text");
-
-	if (!nameInput.value.trim() || !textInput.value.trim()) {
-		alert("Please enter your name and comment");
-		return;
-	}
-
-	try {
-		const response = await fetch(`${API_URL}/posts/${postId}/comments`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				author_name: nameInput.value.trim(),
-				content: textInput.value.trim(),
-			}),
-		});
-
-		const result = await response.json();
-
-		if (result.message) {
-			alert(result.message);
-		} else {
-			loadComments(postId, formElement.closest(".comments-section"));
-		}
-
-		nameInput.value = "";
-		textInput.value = "";
-	} catch (error) {
-		alert("Failed to submit comment. Please try again.");
-	}
-}
-
-// Initialize comments
-function initCommentSections() {
-	const articles = document.querySelectorAll(".main-article");
-
-	articles.forEach((article, index) => {
-		const commentSection = article.querySelector(".comments-section");
-		if (!commentSection) return;
-
-		const postId = index + 1;
-		loadComments(postId, commentSection);
-
-		const submitBtn = commentSection.querySelector(".comment-submit");
-		const formElement = commentSection.querySelector(".comment-form");
-
-		if (submitBtn && formElement) {
-			submitBtn.addEventListener("click", () => {
-				submitComment(postId, formElement);
-			});
-		}
-	});
-}
-
-// Initialize on page load
-document.addEventListener("DOMContentLoaded", () => {
+	// Then initialize features
 	updateDateTicker();
-	setInterval(updateDateTicker, 60000);
-	loadNavbar();
 	initCommentSections();
+	initNavbarEvents();
 
-	console.log("Geezzers Gazzette Cloudflare Edition loaded!");
+	console.log("🎩 Geezzers site fully loaded!");
 });
+
+// API handler for Cloudflare Workers
+addEventListener("fetch", (event) => {
+	event.respondWith(handleRequest(event.request));
+});
+
+async function handleRequest(request) {
+	const url = new URL(request.url);
+	if (url.pathname.startsWith("/api/")) {
+		return await handleAPIRequest(url);
+	}
+	return new Response("Not Found", { status: 404 });
+}
+
+async function handleAPIRequest(url) {
+	// Implement your API logic here
+}
