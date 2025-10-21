@@ -5,10 +5,11 @@
 	"author": "The Geezzers",
 	"license": "MIT",
 	"scripts": {
-		"dev": "wrangler pages dev ./public --d1=geezzers-db --compatibility-date=2024-01-01",
-		"deploy": "wrangler pages deploy ./public",
-		"db:init": "wrangler d1 execute geezzers-db --file=./database-schema.sql",
-		"db:init:local": "wrangler d1 execute geezzers-db --local --file=./database-schema.sql"
+		"dev": "npx wrangler pages dev ./public --local --d1=geezzers-db",
+		"deploy": "npx wrangler pages deploy ./public",
+		"db:init": "npx wrangler d1 execute geezzers-db --local --file=./database-schema.sql",
+		"db:create": "npx wrangler d1 create geezzers-db",
+		"db:test": "npx wrangler d1 execute geezzers-db --local --command=\"SELECT * FROM posts\""
 	},
 	"devDependencies": {
 		"wrangler": "^4.43.0"

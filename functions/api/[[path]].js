@@ -1,10 +1,28 @@
-// API Handler for all /api/* routes
+// functions/api/[[path]].js - DEBUG VERSION
 export async function onRequest(context) {
 	const { request, env, params } = context;
 	const url = new URL(request.url);
-	const apiPath = params.path ? params.path.join("/") : "";
 	const method = request.method;
 
+	// DEBUG: Log everything
+	console.log("=== API DEBUG ===");
+	console.log("URL:", url.toString());
+	console.log("Pathname:", url.pathname);
+	console.log("Method:", method);
+	console.log("Params:", params);
+	console.log("Params.path:", params.path);
+
+	// Get the API path - THIS IS THE KEY PART
+	let apiPath = "";
+	if (params.path) {
+		apiPath = Array.isArray(params.path)
+			? params.path.join("/")
+			: params.path;
+	}
+
+	console.log("Parsed apiPath:", apiPath);
+
+	// CORS headers
 	const headers = {
 		"Access-Control-Allow-Origin": "*",
 		"Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
@@ -12,28 +30,79 @@ export async function onRequest(context) {
 		"Content-Type": "application/json",
 	};
 
+	// Handle OPTIONS
 	if (method === "OPTIONS") {
 		return new Response(null, { headers });
 	}
 
+	// Check database
+	if (!env.DB) {
+		console.error("No database binding!");
+		return new Response(
+			JSON.stringify({
+				error: "Database not configured",
+				env: Object.keys(env),
+				hasDB: !!env.DB,
+			}),
+			{ status: 500, headers }
+		);
+	}
+
 	try {
-		// GET /api/posts - Get all posts
+		// === ROUTE: /api/test ===
+		if (apiPath === "test" && method === "GET") {
+			console.log("Matched /api/test route");
+
+			try {
+				const tables = await env.DB.prepare(
+					"SELECT name FROM sqlite_master WHERE type='table'"
+				).all();
+
+				return new Response(
+					JSON.stringify({
+						status: "OK",
+						message: "API is working!",
+						tables: tables.results
+							? tables.results.map((t) => t.name)
+							: [],
+						debug: {
+							apiPath: apiPath,
+							params: params,
+							url: url.pathname,
+						},
+					}),
+					{ headers }
+				);
+			} catch (dbError) {
+				return new Response(
+					JSON.stringify({
+						status: "Database error",
+						error: dbError.message,
+					}),
+					{ status: 500, headers }
+				);
+			}
+		}
+
+		// === ROUTE: /api/posts ===
 		if (apiPath === "posts" && method === "GET") {
+			console.log("Matched /api/posts route");
+
 			const { results } = await env.DB.prepare(
 				`
-        SELECT p.*, u.username as author_name
-        FROM posts p
-        LEFT JOIN users u ON p.author_id = u.id
-        WHERE p.status = 'published'
-        ORDER BY p.published_at DESC
+        SELECT * FROM posts WHERE status = 'published'
+        ORDER BY published_at DESC
       `
 			).all();
+
 			return new Response(JSON.stringify(results || []), { headers });
 		}
 
-		// GET /api/posts/:id/comments - Get comments
+		// === ROUTE: /api/posts/:id/comments (GET) ===
 		if (apiPath.match(/^posts\/\d+\/comments$/) && method === "GET") {
 			const postId = apiPath.split("/")[1];
+			console.log(`Matched GET /api/posts/${postId}/comments`);
+
 			const { results } = await env.DB.prepare(
 				`
         SELECT * FROM comments
@@ -41,14 +110,17 @@ export async function onRequest(context) {
         ORDER BY created_at DESC
       `
 			)
-				.bind(postId)
+				.bind(parseInt(postId))
 				.all();
+
 			return new Response(JSON.stringify(results || []), { headers });
 		}
 
-		// POST /api/posts/:id/comments - Add comment
+		// === ROUTE: /api/posts/:id/comments (POST) ===
 		if (apiPath.match(/^posts\/\d+\/comments$/) && method === "POST") {
 			const postId = apiPath.split("/")[1];
+			console.log(`Matched POST /api/posts/${postId}/comments`);
+
 			const body = await request.json();
 			const { author_name, content } = body;
 
@@ -59,95 +131,71 @@ export async function onRequest(context) {
 				);
 			}
 
-			const isSpam = /viagra|casino/i.test(content) || content.length > 2000;
+			// Check for spam
+			const isSpam = /viagra|casino/i.test(content);
 			const status = isSpam ? "pending" : "approved";
 
+			// Insert comment
 			const result = await env.DB.prepare(
 				`
         INSERT INTO comments (post_id, author_name, content, status, created_at)
         VALUES (?, ?, ?, ?, datetime('now'))
-        RETURNING *
       `
 			)
-				.bind(postId, author_name, content, status)
+				.bind(parseInt(postId), author_name, content, status)
+				.run();
+
+			// Get the new comment
+			const newComment = await env.DB.prepare(
+				`SELECT * FROM comments WHERE id = ?`
+			)
+				.bind(result.meta.last_row_id)
 				.first();
 
 			if (status === "pending") {
 				return new Response(
 					JSON.stringify({
-						message: "Your comment has been submitted for moderation.",
-						comment: result,
+						message: "Comment submitted for moderation",
+						comment: newComment,
 					}),
 					{ headers }
 				);
 			}
 
-			return new Response(JSON.stringify(result), { headers });
+			return new Response(JSON.stringify(newComment), { headers });
 		}
 
-		// GET /api/search - Search posts
-		if (apiPath === "search" && method === "GET") {
-			const query = url.searchParams.get("q");
-			if (!query) return new Response(JSON.stringify([]), { headers });
-
-			const searchTerm = `%${query}%`;
-			const { results } = await env.DB.prepare(
-				`
-        SELECT id, title, slug, excerpt, category
-        FROM posts
-        WHERE status = 'published'
-        AND (title LIKE ? OR content LIKE ?)
-        ORDER BY published_at DESC
-        LIMIT 20
-      `
-			)
-				.bind(searchTerm, searchTerm)
-				.all();
-
-			return new Response(JSON.stringify(results || []), { headers });
-		}
-
-		// GET /api/admin/comments - Get all comments for moderation
-		if (apiPath === "admin/comments" && method === "GET") {
-			const { results } = await env.DB.prepare(
-				`
-        SELECT c.*, p.title as post_title
-        FROM comments c
-        JOIN posts p ON c.post_id = p.id
-        ORDER BY c.created_at DESC
-      `
-			).all();
-			return new Response(JSON.stringify(results || []), { headers });
-		}
-
-		// PATCH /api/admin/comments/:id - Update comment status
-		if (apiPath.match(/^admin\/comments\/\d+$/) && method === "PATCH") {
-			const commentId = apiPath.split("/")[2];
-			const body = await request.json();
-			const { status } = body;
-
-			const result = await env.DB.prepare(
-				`
-        UPDATE comments SET status = ? WHERE id = ?
-        RETURNING *
-      `
-			)
-				.bind(status, commentId)
-				.first();
-
-			return new Response(JSON.stringify(result), { headers });
-		}
-
-		// 404 for unknown routes
-		return new Response(JSON.stringify({ error: "Not found" }), {
-			status: 404,
-			headers,
+		// === NO ROUTE MATCHED ===
+		console.log("No route matched!");
+		console.log("Available info:", {
+			apiPath: apiPath,
+			method: method,
+			pathname: url.pathname,
+			params: JSON.stringify(params),
 		});
+
+		return new Response(
+			JSON.stringify({
+				error: "Not found",
+				debug: {
+					apiPath: apiPath,
+					method: method,
+					pathname: url.pathname,
+					params: params,
+					hint: "Check console logs for details",
+				},
+			}),
+			{ status: 404, headers }
+		);
 	} catch (error) {
-		console.error("API Error:", error);
-		return new Response(JSON.stringify({ error: "Internal server error" }), {
-			status: 500,
-			headers,
-		});
+		console.error("Error:", error);
+		return new Response(
+			JSON.stringify({
+				error: "Internal server error",
+				message: error.message,
+				stack: error.stack,
+			}),
+			{ status: 500, headers }
+		);
 	}
 }
