@@ -63,7 +63,7 @@ export async function onRequest(context) {
 
 			// Get admin credentials from environment variables
 			const adminUser = env.ADMIN_USERNAME || "admin";
-			const adminPass = env.ADMIN_PASSWORD || "geezzer123";
+			const adminPass = env.ADMIN_PASSWORD || "superJak!13185";
 
 			return username === adminUser && password === adminPass;
 		} catch (error) {
