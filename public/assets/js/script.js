@@ -8,7 +8,7 @@ const API_URL =
 		: "/api";
 
 // ============ TEMPLATES ============
-const TEMPLATES = {
+/*const TEMPLATES = {
 	navbar: `<nav>
 		<div class="geezzers-wrapper">
 			<div class="geezzers">
@@ -126,25 +126,57 @@ const TEMPLATES = {
 			</div>
 		</div>
 	</section>`,
-};
+};*/
 
 // ============ TEMPLATE LOADING ============
 
+// Template loader with fallback strategies
+async function loadTemplate(name, paths = []) {
+	// Default paths if none provided
+	if (paths.length === 0) {
+		paths = [
+			`./assets/templates/${name}.html`,
+			`/assets/templates/${name}.html`,
+			`assets/templates/${name}.html`,
+		];
+	}
+
+	// Try each path until one works
+	for (const path of paths) {
+		try {
+			const response = await fetch(path);
+			if (response.ok) {
+				const html = await response.text();
+				console.log(`✅ Template '${name}' loaded from: ${path}`);
+				return html;
+			}
+		} catch (error) {
+			console.log(`❌ Failed to load '${name}' from: ${path}`);
+		}
+	}
+
+	// If all paths fail, use embedded template as fallback
+	console.log(`⚠️ Using embedded fallback for '${name}'`);
+	return TEMPLATES[name] || `<div>Template '${name}' not found</div>`;
+}
+
 // Load navbar component
-function loadNavbar() {
+async function loadNavbar() {
 	const placeholder = document.getElementById("navbar-placeholder");
 	if (placeholder) {
-		placeholder.innerHTML = TEMPLATES.navbar;
+		const template = await loadTemplate("navbar");
+		placeholder.innerHTML = template;
 		console.log("✅ Navbar loaded");
 		initNavbarEvents();
 	}
 }
 
 // Load hero component
-function loadHero() {
+async function loadHero() {
 	const placeholder = document.getElementById("hero-placeholder");
 	if (placeholder) {
-		placeholder.innerHTML = TEMPLATES.hero;
+		const template = await loadTemplate("hero");
+		placeholder.innerHTML = template;
 		console.log("✅ Hero loaded");
 	}
 }
@@ -469,13 +501,13 @@ function initNewsletterSignup() {
 // ============ MAIN INITIALIZATION ============
 
 // Single DOMContentLoaded listener - ONLY ONE!
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
 	console.log("🎩 Initializing Geezzers' Gazzette...");
 
 	try {
 		// Load templates first
-		loadNavbar();
-		loadHero();
+		await loadNavbar();
+		await loadHero();
 
 		// Load any blog content
 		if (document.getElementById("blog-placeholder-1")) {

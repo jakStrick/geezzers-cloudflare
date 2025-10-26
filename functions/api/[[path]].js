@@ -48,6 +48,29 @@ export async function onRequest(context) {
 		);
 	}
 
+	// Authentication helper function
+	function checkAuth(request, env) {
+		const authHeader = request.headers.get("Authorization");
+
+		if (!authHeader || !authHeader.startsWith("Basic ")) {
+			return false;
+		}
+
+		try {
+			const base64Credentials = authHeader.split(" ")[1];
+			const credentials = atob(base64Credentials);
+			const [username, password] = credentials.split(":");
+
+			// Get admin credentials from environment variables
+			const adminUser = env.ADMIN_USERNAME || "admin";
+			const adminPass = env.ADMIN_PASSWORD || "geezzer123";
+
+			return username === adminUser && password === adminPass;
+		} catch (error) {
+			return false;
+		}
+	}
+
 	try {
 		// === ROUTE: /api/test ===
 		if (apiPath === "test" && method === "GET") {
@@ -131,8 +154,23 @@ export async function onRequest(context) {
 				);
 			}
 
-			// Check for spam
-			const isSpam = /viagra|casino/i.test(content);
+			// Enhanced spam detection
+			const spamKeywords =
+				/viagra|casino|lottery|crypto|bitcoin|investment|loan|mortgage|debt|weight.loss|male.enhancement|dating|singles|pharmacy|pills/i;
+			const suspiciousPatterns = /http[s]?:\/\/|www\.|\.com|\.org|\.net/i;
+			const excessiveUppercase =
+				content.length > 20 &&
+				(content.match(/[A-Z]/g) || []).length / content.length > 0.5;
+			const tooLong = content.length > 2000;
+			const tooShort = content.length < 10;
+
+			const isSpam =
+				spamKeywords.test(content) ||
+				suspiciousPatterns.test(content) ||
+				excessiveUppercase ||
+				tooLong ||
+				tooShort;
+
 			const status = isSpam ? "pending" : "approved";
 
 			// Insert comment
@@ -165,6 +203,143 @@ export async function onRequest(context) {
 			return new Response(JSON.stringify(newComment), { headers });
 		}
 
+		// === ROUTE: /api/admin/comments (GET) - Get all comments for moderation ===
+		if (apiPath === "admin/comments" && method === "GET") {
+			console.log("Matched GET /api/admin/comments");
+
+			// Check authentication
+			if (!checkAuth(request, env)) {
+				return new Response(
+					JSON.stringify({ error: "Authentication required" }),
+					{
+						status: 401,
+						headers: {
+							...headers,
+							"WWW-Authenticate": 'Basic realm="Admin Area"',
+						},
+					}
+				);
+			}
+
+			const { results } = await env.DB.prepare(
+				`
+        SELECT 
+          c.*,
+          p.title as post_title
+        FROM comments c
+        LEFT JOIN posts p ON c.post_id = p.id
+        ORDER BY c.created_at DESC
+      `
+			).all();
+
+			return new Response(JSON.stringify(results || []), { headers });
+		}
+
+		// === ROUTE: /api/admin/comments/:id (PATCH) - Update comment status ===
+		if (apiPath.match(/^admin\/comments\/\d+$/) && method === "PATCH") {
+			const commentId = apiPath.split("/")[2];
+			console.log(`Matched PATCH /api/admin/comments/${commentId}`);
+
+			// Check authentication
+			if (!checkAuth(request, env)) {
+				return new Response(
+					JSON.stringify({ error: "Authentication required" }),
+					{
+						status: 401,
+						headers: {
+							...headers,
+							"WWW-Authenticate": 'Basic realm="Admin Area"',
+						},
+					}
+				);
+			}
+
+			const body = await request.json();
+			const { status } = body;
+
+			if (!["approved", "rejected", "pending"].includes(status)) {
+				return new Response(JSON.stringify({ error: "Invalid status" }), {
+					status: 400,
+					headers,
+				});
+			}
+
+			await env.DB.prepare(`UPDATE comments SET status = ? WHERE id = ?`)
+				.bind(status, parseInt(commentId))
+				.run();
+
+			return new Response(JSON.stringify({ success: true, status }), {
+				headers,
+			});
+		}
+
+		// === ROUTE: /api/admin/comments/:id (DELETE) - Delete comment ===
+		if (apiPath.match(/^admin\/comments\/\d+$/) && method === "DELETE") {
+			const commentId = apiPath.split("/")[2];
+			console.log(`Matched DELETE /api/admin/comments/${commentId}`);
+
+			// Check authentication
+			if (!checkAuth(request, env)) {
+				return new Response(
+					JSON.stringify({ error: "Authentication required" }),
+					{
+						status: 401,
+						headers: {
+							...headers,
+							"WWW-Authenticate": 'Basic realm="Admin Area"',
+						},
+					}
+				);
+			}
+
+			await env.DB.prepare(`DELETE FROM comments WHERE id = ?`)
+				.bind(parseInt(commentId))
+				.run();
+
+			return new Response(JSON.stringify({ success: true }), { headers });
+		}
+
+		// === ROUTE: /api/admin/stats (GET) - Get moderation statistics ===
+		if (apiPath === "admin/stats" && method === "GET") {
+			console.log("Matched GET /api/admin/stats");
+
+			// Check authentication
+			if (!checkAuth(request, env)) {
+				return new Response(
+					JSON.stringify({ error: "Authentication required" }),
+					{
+						status: 401,
+						headers: {
+							...headers,
+							"WWW-Authenticate": 'Basic realm="Admin Area"',
+						},
+					}
+				);
+			}
+
+			const stats = await env.DB.prepare(
+				`
+        SELECT 
+          status,
+          COUNT(*) as count
+        FROM comments 
+        GROUP BY status
+      `
+			).all();
+
+			const totalComments = await env.DB.prepare(
+				`SELECT COUNT(*) as total FROM comments`
+			).first();
+
+			return new Response(
+				JSON.stringify({
+					statusCounts: stats.results || [],
+					total: totalComments.total || 0,
+				}),
+				{ headers }
+			);
+		}
+
 		// === NO ROUTE MATCHED ===
 		console.log("No route matched!");
 		console.log("Available info:", {
@@ -184,6 +359,12 @@ export async function onRequest(context) {
 					params: params,
 					hint: "Check console logs for details",
 				},
+				availableAdminRoutes: [
+					"GET /api/admin/comments",
+					"PATCH /api/admin/comments/:id",
+					"DELETE /api/admin/comments/:id",
+					"GET /api/admin/stats",
+				],
 			}),
 			{ status: 404, headers }
 		);
