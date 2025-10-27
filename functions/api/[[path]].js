@@ -96,6 +96,16 @@ export async function onRequest(context) {
 						tables: tables.results
 							? tables.results.map((t) => t.name)
 							: [],
+						environment: {
+							hasAdminUsername: !!env.ADMIN_USERNAME,
+							hasAdminPassword: !!env.ADMIN_PASSWORD,
+							adminUsernameLength: env.ADMIN_USERNAME
+								? env.ADMIN_USERNAME.length
+								: 0,
+							adminPasswordLength: env.ADMIN_PASSWORD
+								? env.ADMIN_PASSWORD.length
+								: 0,
+						},
 						debug: {
 							apiPath: apiPath,
 							params: params,
