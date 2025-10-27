@@ -61,9 +61,17 @@ export async function onRequest(context) {
 			const credentials = atob(base64Credentials);
 			const [username, password] = credentials.split(":");
 
-			// Get admin credentials from environment variables
-			const adminUser = env.ADMIN_USERNAME || "admin";
-			const adminPass = env.ADMIN_PASSWORD || "superJak!13185";
+			// Get admin credentials from environment variables (required)
+			const adminUser = env.ADMIN_USERNAME;
+			const adminPass = env.ADMIN_PASSWORD;
+
+			// Ensure environment variables are set
+			if (!adminUser || !adminPass) {
+				console.error(
+					"ADMIN_USERNAME and ADMIN_PASSWORD environment variables must be set"
+				);
+				return false;
+			}
 
 			return username === adminUser && password === adminPass;
 		} catch (error) {
