@@ -26,7 +26,7 @@ export async function onRequest(context) {
 	const headers = {
 		"Access-Control-Allow-Origin": "*",
 		"Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-		"Access-Control-Allow-Headers": "Content-Type",
+		"Access-Control-Allow-Headers": "Content-Type, Authorization",
 		"Content-Type": "application/json",
 	};
 
@@ -221,10 +221,7 @@ export async function onRequest(context) {
 					JSON.stringify({ error: "Authentication required" }),
 					{
 						status: 401,
-						headers: {
-							...headers,
-							"WWW-Authenticate": 'Basic realm="Admin Area"',
-						},
+						headers,
 					}
 				);
 			}
@@ -254,10 +251,7 @@ export async function onRequest(context) {
 					JSON.stringify({ error: "Authentication required" }),
 					{
 						status: 401,
-						headers: {
-							...headers,
-							"WWW-Authenticate": 'Basic realm="Admin Area"',
-						},
+						headers,
 					}
 				);
 			}
@@ -292,10 +286,7 @@ export async function onRequest(context) {
 					JSON.stringify({ error: "Authentication required" }),
 					{
 						status: 401,
-						headers: {
-							...headers,
-							"WWW-Authenticate": 'Basic realm="Admin Area"',
-						},
+						headers,
 					}
 				);
 			}
@@ -317,10 +308,7 @@ export async function onRequest(context) {
 					JSON.stringify({ error: "Authentication required" }),
 					{
 						status: 401,
-						headers: {
-							...headers,
-							"WWW-Authenticate": 'Basic realm="Admin Area"',
-						},
+						headers,
 					}
 				);
 			}
