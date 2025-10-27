@@ -105,6 +105,12 @@ export async function onRequest(context) {
 							adminPasswordLength: env.ADMIN_PASSWORD
 								? env.ADMIN_PASSWORD.length
 								: 0,
+							adminUsernameFirst3: env.ADMIN_USERNAME
+								? env.ADMIN_USERNAME.substring(0, 3) + "..."
+								: null,
+							adminPasswordFirst3: env.ADMIN_PASSWORD
+								? env.ADMIN_PASSWORD.substring(0, 3) + "..."
+								: null,
 						},
 						debug: {
 							apiPath: apiPath,
