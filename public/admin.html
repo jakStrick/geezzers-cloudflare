@@ -308,19 +308,31 @@
 
 			// Authentication functions
 			function login() {
+				console.log("Login function called");
 				const username = document.getElementById("username").value;
 				const password = document.getElementById("password").value;
+
+				console.log(
+					"Username:",
+					username,
+					"Password length:",
+					password.length
+				);
 
 				if (!username || !password) {
 					showError("Please enter both username and password");
 					return;
 				}
 
+				// Clear any existing errors
+				hideError();
+
 				// Create base64 encoded credentials
 				authCredentials = btoa(username + ":" + password);
+				console.log("Generated credentials, calling testAuth(true)");
 
 				// Test authentication by trying to load stats
-				testAuth();
+				testAuth(true); // Explicitly pass true to show errors
 			}
 			function logout() {
 				authCredentials = null;
@@ -345,9 +357,15 @@
 			}
 
 			function showError(message) {
+				console.log("showError called with message:", message);
 				const errorDiv = document.getElementById("loginError");
-				errorDiv.textContent = message;
-				errorDiv.style.display = "block";
+				if (errorDiv) {
+					errorDiv.textContent = message;
+					errorDiv.style.display = "block";
+					console.log("Error displayed:", errorDiv.textContent);
+				} else {
+					console.error("loginError element not found!");
+				}
 			}
 
 			function hideError() {
@@ -355,6 +373,7 @@
 			}
 
 			async function testAuth(showErrors = true) {
+				console.log("testAuth called, showErrors:", showErrors);
 				try {
 					const response = await fetch("/api/admin/stats", {
 						headers: {
@@ -362,10 +381,16 @@
 						},
 					});
 
+					console.log("Response status:", response.status);
+					console.log("Response ok:", response.ok);
+
 					if (response.ok) {
+						console.log("Auth successful, showing admin");
 						showAdmin();
 					} else if (response.status === 401) {
+						console.log("Auth failed (401), showErrors:", showErrors);
 						if (showErrors) {
+							console.log("Showing error message");
 							showError("Invalid username or password");
 						}
 						// Clear invalid saved credentials
@@ -373,7 +398,9 @@
 						authCredentials = null;
 						showLogin();
 					} else {
+						console.log("Auth failed (other), showErrors:", showErrors);
 						if (showErrors) {
+							console.log("Showing generic error message");
 							showError("Authentication failed. Please try again.");
 						}
 						showLogin();
@@ -381,6 +408,7 @@
 				} catch (error) {
 					console.error("Auth test failed:", error);
 					if (showErrors) {
+						console.log("Showing connection error");
 						showError("Connection error. Please try again.");
 					}
 					showLogin();
