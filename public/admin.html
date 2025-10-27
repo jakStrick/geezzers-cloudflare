@@ -322,7 +322,6 @@
 				// Test authentication by trying to load stats
 				testAuth();
 			}
-
 			function logout() {
 				authCredentials = null;
 				localStorage.removeItem("adminAuth");
@@ -355,7 +354,7 @@
 				document.getElementById("loginError").style.display = "none";
 			}
 
-			async function testAuth() {
+			async function testAuth(showErrors = true) {
 				try {
 					const response = await fetch("/api/admin/stats", {
 						headers: {
@@ -366,17 +365,27 @@
 					if (response.ok) {
 						showAdmin();
 					} else if (response.status === 401) {
-						showError("Invalid username or password");
+						if (showErrors) {
+							showError("Invalid username or password");
+						}
+						// Clear invalid saved credentials
+						localStorage.removeItem("adminAuth");
+						authCredentials = null;
+						showLogin();
 					} else {
-						showError("Authentication failed. Please try again.");
+						if (showErrors) {
+							showError("Authentication failed. Please try again.");
+						}
+						showLogin();
 					}
 				} catch (error) {
 					console.error("Auth test failed:", error);
-					showError("Connection error. Please try again.");
+					if (showErrors) {
+						showError("Connection error. Please try again.");
+					}
+					showLogin();
 				}
-			}
-
-			// Helper function to make authenticated requests
+			} // Helper function to make authenticated requests
 			function makeAuthRequest(url, options = {}) {
 				if (!authCredentials) {
 					showLogin();
@@ -588,21 +597,17 @@
 				const savedAuth = localStorage.getItem("adminAuth");
 				if (savedAuth) {
 					authCredentials = savedAuth;
-					testAuth(); // Verify saved credentials
+					testAuth(false); // Verify saved credentials silently
 				} else {
 					showLogin();
 				}
 
 				// Add logout button functionality
-				document.querySelector('button[onclick*="Logout"]').onclick =
-					logout;
-
-				// Add login button functionality
-				const loginBtn = document.querySelector(
-					'button[onclick="login()"]'
+				const logoutBtn = document.querySelector(
+					'button[onclick*="Logout"]'
 				);
-				if (loginBtn) {
-					loginBtn.onclick = login;
+				if (logoutBtn) {
+					logoutBtn.onclick = logout;
 				}
 
 				// Add enter key support for login
